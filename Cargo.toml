@@ -1,0 +1,15 @@
+[package]
+name = "hello-rocket-e"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+
+[dependencies]
+chrono = "0.4"
+jsonwebtoken = { version = "8", default-features = false }
+lazy_static = "1.4"
+rocket = { version = "0.5.0-rc.2", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+shuttle-service = { version = "0.7.2", features = ["web-rocket"] }
