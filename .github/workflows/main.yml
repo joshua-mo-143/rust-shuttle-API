@@ -1,0 +1,11 @@
+- name: ShuttleHQ deploy
+  # You may pin to the exact commit or the version.
+  # uses: shuttle-hq/deploy-action@32a6256735b51118203281214c04e6ff9c22f3ae
+  uses: shuttle-hq/deploy-action@v0.0.3
+  with:
+    # the key found at "https://www.shuttle.rs/login"
+    deploy-key: 
+    # the directory which includes the `Cargo.toml`
+    working-directory: # optional, default is .
+    # allow uncommitted changes to be deployed
+    allow-dirty: # optional, default is false
