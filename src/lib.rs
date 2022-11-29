@@ -1,8 +1,10 @@
 // lib.rs
 use rocket::http::Status;
+use rocket::State;
 use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
+// use sqlx::{Executor, FromRow, PgPool};
 
 mod claims;
 
@@ -15,6 +17,13 @@ extern crate rocket;
 struct PublicResponse {
     message: String,
 }
+
+// #[derive(Serialize, FromRow)]
+// struct Note {
+//     pub id: i32,
+//     pub user_id: i32,
+//     pub note: String,
+// }
 
 #[get("/")]
 fn index() -> &'static str {
@@ -58,7 +67,7 @@ fn login(login: Json<LoginRequest>) -> Result<Json<LoginResponse>, Custom<String
     if login.username != "username" || login.password != "password" {
         return Err(Custom(
             Status::Unauthorized,
-            "Account not found.".to_string(),
+            "Incorrect credentials.".to_string(),
         ));
     }
 
@@ -70,8 +79,23 @@ fn login(login: Json<LoginRequest>) -> Result<Json<LoginResponse>, Custom<String
     Ok(Json(response))
 }
 
+// #[get("/notes")]
+// fn getNotes(pool: &State<PgPool>) -> Result<Json<Note>, E> {
+//     let notes = sqlx::query("SELECT * FROM notes")
+//     .execute(&PgPool)
+//     .await
+//     .map_err(|E| Status::InternalServerError)?;
+
+//     Ok(Json(notes))
+// }
+
 #[shuttle_service::main] 
 async fn rocket() -> shuttle_service::ShuttleRocket {
+    // pool.execute(include_str!("../schema.sql"))
+    //     .await
+    //     .map_err(CustomError::new)?;
+
+    // let state = MyState {pool};
     let rocket = rocket::build().mount("/", routes![index, public, private, login]);
 
     Ok(rocket)

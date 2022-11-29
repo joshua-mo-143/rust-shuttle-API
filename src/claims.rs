@@ -67,6 +67,7 @@ impl Claims {
 
         let token = token.unwrap();
 
+        // decode token using the Claims pub crate
         let token = decode::<Claims>(
             token,
             &DecodingKey::from_secret(SECRET.as_ref()),
