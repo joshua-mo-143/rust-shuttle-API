@@ -1,10 +1,11 @@
 // lib.rs
 use rocket::http::Status;
-use rocket::State;
 use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
-// use sqlx::{Executor, FromRow, PgPool};
+use sqlx::{PgPool};
+use sqlx::migrate::Migrator;
+use shuttle_service::{error::CustomError};
 
 mod claims;
 
@@ -12,6 +13,10 @@ use claims::Claims;
 
 #[macro_use]
 extern crate rocket;
+
+struct AppState {
+    pool: PgPool,
+}
 
 #[derive(Serialize)]
 struct PublicResponse {
@@ -89,13 +94,13 @@ fn login(login: Json<LoginRequest>) -> Result<Json<LoginResponse>, Custom<String
 //     Ok(Json(notes))
 // }
 
-#[shuttle_service::main] 
-async fn rocket() -> shuttle_service::ShuttleRocket {
-    // pool.execute(include_str!("../schema.sql"))
-    //     .await
-    //     .map_err(CustomError::new)?;
+static MIGRATOR: Migrator = sqlx::migrate!("./src/migrations");
 
-    // let state = MyState {pool};
+#[shuttle_service::main] 
+async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service::ShuttleRocket {
+    MIGRATOR.run(&pool).await.map_err(CustomError::new)?;
+
+    let state = AppState {pool};
     let rocket = rocket::build().mount("/", routes![index, public, private, login]);
 
     Ok(rocket)
