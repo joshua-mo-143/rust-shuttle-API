@@ -5,8 +5,8 @@ use rocket::response::status::{Custom, BadRequest};
 
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, Error, FromRow};
-use sqlx::migrate::Migrator;
+use sqlx::{PgPool, FromRow};
+use sqlx::migrate::{Migrator};
 use shuttle_service::{error::CustomError};
 
 mod claims;
@@ -27,8 +27,7 @@ struct PublicResponse {
 
 #[derive(Serialize, FromRow)]
 struct Note {
-    pub id: i32,
-    pub user_id: i32,
+    pub note_id: i32,
     pub note: String,
 }
 
@@ -86,10 +85,20 @@ fn login(login: Json<LoginRequest>) -> Result<Json<LoginResponse>, Custom<String
     Ok(Json(response))
 }
 
-#[get("/<id>")]
-async fn get_notes(id: i32, state: &State<AppState>) -> Result<Json<Note>, BadRequest<String>> {
-    let note = sqlx::query_as("SELECT * FROM notes WHERE id = $1")
-    .bind(id)
+#[get("/notes")]
+async fn get_notes_all(state: &State<AppState>) -> Result<Json<Vec<Note>>, BadRequest<String>> {
+    let notes = sqlx::query_as("SELECT * FROM notes")
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| BadRequest(Some(e.to_string())))?;
+
+    Ok(Json(notes))
+}
+
+#[get("/notes/<note_id>")]
+async fn get_notes(note_id: i32, state: &State<AppState>) -> Result<Json<Note>, BadRequest<String>> {
+    let note = sqlx::query_as("SELECT * FROM notes WHERE note_id = $1")
+    .bind(note_id)
     .fetch_one(&state.pool)
     .await
     .map_err(|e| BadRequest(Some(e.to_string())))?;
@@ -104,7 +113,7 @@ async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service:
     MIGRATOR.run(&pool).await.map_err(CustomError::new)?;
 
     let state = AppState {pool};
-    let rocket = rocket::build().mount("/", routes![index, public, private, login, get_notes]).manage(state);
+    let rocket = rocket::build().mount("/", routes![index, public, private, login, get_notes, get_notes_all]).manage(state);
 
     Ok(rocket)
 }
