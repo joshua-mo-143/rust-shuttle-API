@@ -161,10 +161,13 @@ async fn delete_note(note_id: i32, state: &State<AppState>) -> Result<(), BadReq
 
 #[post("/", data = "<post_note>")]
 async fn post_note(post_note: Json<Note>, state: &State<AppState>) -> Result<String, BadRequest<String>> {
-    sqlx::query!("INSERT INTO notes (note, user_id) VALUES ($1, $2)", post_note.note, post_note.user_id)
+    sqlx::query("INSERT INTO notes (note, user_id) VALUES ($1, $2)")
+        .bind(&post_note.note)
+        .bind(&post_note.user_id)
         .execute(&state.pool)
-        .await;
-        
+        .await
+        .map_err(|e| BadRequest(Some(e.to_string())));
+
     Ok("added".to_string())
 }
 
