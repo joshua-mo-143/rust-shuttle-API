@@ -4,14 +4,15 @@ use rocket::State;
 use rocket::response::status::{Custom, BadRequest};
 
 use rocket::serde::json::Json;
-use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, FromRow};
+use sqlx::{PgPool};
 use sqlx::migrate::{Migrator};
 use anyhow::Context as _;
 
 mod claims;
+mod utils;
 
 use claims::Claims;
+use utils::{PublicResponse, PrivateResponse, NewUser, LoginRequest, LoginResponse, Note, Product};
 
 #[macro_use]
 extern crate rocket;
@@ -20,21 +21,10 @@ struct AppState {
     pool: PgPool,
 }
 
-#[derive(Serialize)]
-struct PublicResponse {
-    message: String,
-}
-
-#[derive(Deserialize, Serialize, FromRow)]
-struct Note {
-    pub note_id: i32,
-    pub note: String,
-    pub user_id: i32,
-}
-
 #[get("/")]
 fn index() -> &'static str {
-    "Hello, world!"
+    "Hello, world! \n
+    Welcome to my "
 }
 
 #[get("/public")]
@@ -44,35 +34,12 @@ fn public() -> Json<PublicResponse> {
     })  
 }
 
-#[derive(Serialize)]
-struct PrivateResponse {
-    message: String,
-    user: String,
-}
-
 #[get("/private")]
 fn private(user: Claims) -> Json<PrivateResponse> {
     Json(PrivateResponse {
         message: "The `Claims` request guard ensures only valid JWTs can access this endpoint.".to_string(),
         user: user.name,
     })
-}
-
-#[derive(Deserialize)]
-struct LoginRequest {
-    username: String,
-    password: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NewUser {
-    username: String,
-    password: String,
-}
-
-#[derive(Serialize)]
-struct LoginResponse {
-    token: String
 }
 
 #[post("/register", data = "<new_user>")]
@@ -101,6 +68,7 @@ async fn login(login: Json<LoginRequest>, state: &State<AppState>) -> Result<Jso
     .await
     .map_err(|e| Custom(Status::Unauthorized, e.to_string()));
 
+    // TODO
     // if login.username != "username" || login.password != "password" {
     //     return Err(Custom(
     //         Status::Unauthorized,
@@ -154,7 +122,7 @@ async fn delete_note(note_id: i32, state: &State<AppState>) -> Result<(), BadReq
     .bind(note_id)
     .execute(&state.pool)
     .await
-    .map_err(|e| BadRequest(Some(e.to_string())));
+    .map_err(|e| BadRequest(Some(e.to_string()))).ok();
 
     Ok(())
 }
@@ -166,11 +134,20 @@ async fn post_note(post_note: Json<Note>, state: &State<AppState>) -> Result<Str
         .bind(&post_note.user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| BadRequest(Some(e.to_string())));
+        .map_err(|e| BadRequest(Some(e.to_string()))).ok();
 
     Ok("added".to_string())
 }
 
+#[get("/")]
+async fn get_products_all(state: &State<AppState>) -> Result<Json<Vec<Product>>, BadRequest<String>> {
+    let products = sqlx::query_as("SELECT * FROM products")
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| BadRequest(Some(e.to_string())))?;
+
+    Ok(Json(products))
+}
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[shuttle_service::main] 
@@ -182,6 +159,7 @@ async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service:
         .mount("/", routes![index, public, private, register, login])
         .mount("/users", routes![get_user_notes])
         .mount("/notes", routes![get_notes_all, get_notes_one, post_note, delete_note])
+        .mount("/products", routes![get_products_all])
         .manage(state);
 
     Ok(rocket)
