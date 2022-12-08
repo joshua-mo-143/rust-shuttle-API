@@ -149,10 +149,23 @@ async fn get_products_all(state: &State<AppState>) -> Result<Json<Vec<Product>>,
 
     Ok(Json(products))
 }
+
+#[get("/<product_id>")]
+async fn get_products_one(product_id: i32, state: &State<AppState>) -> Result<Json<Product>, BadRequest<String>> {
+    let product = sqlx::query_as("SELECT * FROM products WHERE product_id = $1")
+    .bind(product_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| BadRequest(Some(e.to_string())))?;
+
+    Ok(Json(product))
+}
+
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[shuttle_service::main] 
 async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service::ShuttleRocket {
+    // ONLY RUN THE BELOW LINE WHEN YOU WANT TO RUN MIGRATIONS
     // MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
 
     let state = AppState {pool};
@@ -160,7 +173,7 @@ async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service:
         .mount("/", routes![index, public, private, register, login])
         .mount("/users", routes![get_user_notes])
         .mount("/notes", routes![get_notes_all, get_notes_one, post_note, delete_note])
-        .mount("/products", routes![get_products_all])
+        .mount("/products", routes![get_products_all, get_products_one])
         .manage(state)
         .attach(CORS);
 
