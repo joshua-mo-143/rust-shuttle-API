@@ -12,7 +12,7 @@ mod claims;
 mod utils;
 
 use claims::Claims;
-use utils::{PublicResponse, PrivateResponse, NewUser, LoginRequest, LoginResponse, Note, Product};
+use utils::{PublicResponse, PrivateResponse, NewUser, LoginRequest, LoginResponse, Note, Product, CORS};
 
 #[macro_use]
 extern crate rocket;
@@ -23,8 +23,9 @@ struct AppState {
 
 #[get("/")]
 fn index() -> &'static str {
-    "Hello, world! \n
-    Welcome to my "
+    "\nThanks for visiting my API!
+    \nYou
+    "
 }
 
 #[get("/public")]
@@ -152,7 +153,7 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[shuttle_service::main] 
 async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service::ShuttleRocket {
-    MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
+    // MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
 
     let state = AppState {pool};
     let rocket = rocket::build()
@@ -160,7 +161,8 @@ async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service:
         .mount("/users", routes![get_user_notes])
         .mount("/notes", routes![get_notes_all, get_notes_one, post_note, delete_note])
         .mount("/products", routes![get_products_all])
-        .manage(state);
+        .manage(state)
+        .attach(CORS);
 
     Ok(rocket)
 }
