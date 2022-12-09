@@ -1,12 +1,13 @@
+use bcrypt::verify;
 // lib.rs
 use rocket::http::Status;
 use rocket::State;
 use rocket::response::status::{Custom, BadRequest};
 
+use sqlx::Row;
 use rocket::serde::json::Json;
 use sqlx::{PgPool};
 use sqlx::migrate::{Migrator};
-use anyhow::Context as _;
 
 mod claims;
 mod utils;
@@ -24,7 +25,9 @@ struct AppState {
 #[get("/")]
 fn index() -> &'static str {
     "\nThanks for visiting my API!
-    \nYou
+    \nYou can visit any of these endpoints below to get data:
+    \n'/notes' - get notes data (full CRUD functionality)
+    \n'/products' - get product data (GET only)
     "
 }
 
@@ -44,38 +47,35 @@ fn private(user: Claims) -> Json<PrivateResponse> {
 }
 
 #[post("/register", data = "<new_user>")]
-async fn register(new_user: Json<NewUser>, state: &State<AppState>) -> Result<(), BadRequest<String>> {
+async fn register(new_user: Json<NewUser>, state: &State<AppState>) -> Result<Json<NewUser>, BadRequest<String>> {
     let hashed_password = bcrypt::hash(&new_user.password, 7).unwrap();
     
     sqlx::query("INSERT INTO users (username, password) VALUES ($1, $2)")
                 .bind(&new_user.username)
-                .bind(hashed_password)
+                .bind(&hashed_password)
                 .execute(&state.pool)
                 .await
                 .map_err(|e| BadRequest(Some(e.to_string())))?;
     
-    Ok(())
+    Ok(new_user)
                 
 }
 
 #[post("/login", data = "<login>")]
 async fn login(login: Json<LoginRequest>, state: &State<AppState>) -> Result<Json<LoginResponse>, Custom<String>> {
-    let hashed_password = bcrypt::hash(&login.password, 7).unwrap();
 
-    let _user_credentials = sqlx::query("SELECT username, password FROM users WHERE username = $1 AND password = $2")
-    .bind(&login.username)
-    .bind(hashed_password)
+    let user_credentials = sqlx::query("SELECT password FROM users WHERE username = $1")
+    .bind(&login.username)  
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| Custom(Status::Unauthorized, e.to_string()));
+    .map_err(|e| Custom(Status::Unauthorized, e.to_string()))?;
 
-    // TODO
-    // if login.username != "username" || login.password != "password" {
-    //     return Err(Custom(
-    //         Status::Unauthorized,
-    //         "Incorrect credentials.".to_string(),
-    //     ));
-    // }
+
+    let meme: &str = user_credentials.try_get("password").unwrap();
+    
+    if verify(&login.password, meme).unwrap() == false {
+        return Err(Custom(Status::Unauthorized, "Incorrect credentials".to_string()))
+    }
 
     let claim = Claims::from_name(&login.username);
     let response = LoginResponse {
