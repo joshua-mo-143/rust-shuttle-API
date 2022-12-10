@@ -4,10 +4,12 @@ use rocket::http::Status;
 use rocket::State;
 use rocket::response::status::{Custom, BadRequest};
 
+use shuttle_secrets::SecretStore;
 use sqlx::Row;
 use rocket::serde::json::Json;
 use sqlx::{PgPool};
 use sqlx::migrate::{Migrator};
+use anyhow::anyhow;
 
 mod claims;
 mod utils;
@@ -15,11 +17,17 @@ mod utils;
 use claims::Claims;
 use utils::{PublicResponse, PrivateResponse, NewUser, LoginRequest, LoginResponse, Note, Product, CORS};
 
+use stripe::{
+    Client, CreatePaymentLink, CreatePaymentLinkLineItems, CreatePrice, CreateProduct, Currency,
+    IdOrCreate, PaymentLink, Price, Product as StripeProduct,
+};
+
 #[macro_use]
 extern crate rocket;
 
 struct AppState {
     pool: PgPool,
+    secret: String
 }
 
 #[get("/")]
@@ -161,16 +169,66 @@ async fn get_products_one(product_id: i32, state: &State<AppState>) -> Result<Js
     Ok(Json(product))
 }
 
+#[get("/paymentlink")]
+async fn checkout(state: &State<AppState>) -> String {
+    let client = Client::new(&state.secret.clone());
+
+    let product = {
+        let mut create_product = CreateProduct::new("T-Shirt");
+        create_product.metadata =
+            Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
+        StripeProduct::create(&client, create_product).await.unwrap()
+    };
+
+    // and add a price for it in USD
+    let price = {
+        let mut create_price = CreatePrice::new(Currency::USD);
+        create_price.product = Some(IdOrCreate::Id(&product.id));
+        create_price.metadata =
+            Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
+        create_price.unit_amount = Some(1000);
+        create_price.expand = &["product"];
+        Price::create(&client, create_price).await.unwrap()
+    };
+
+    println!(
+        "created a product {:?} at price {} {}",
+        product.name.unwrap(),
+        price.unit_amount.unwrap() / 100,
+        price.currency.unwrap()
+    );
+
+    let payment_link = PaymentLink::create(
+        &client,
+        CreatePaymentLink::new(vec![CreatePaymentLinkLineItems {
+            quantity: 3,
+            price: price.id.to_string(),
+            ..Default::default()
+        }]),
+    )
+    .await
+    .unwrap();
+
+    return payment_link.url;
+}
+
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[shuttle_service::main] 
-async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_service::ShuttleRocket {
+async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool, #[shuttle_secrets::Secrets] secret_store: SecretStore) -> shuttle_service::ShuttleRocket {
     // ONLY RUN THE BELOW LINE WHEN YOU WANT TO RUN MIGRATIONS
     // MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
 
-    let state = AppState {pool};
+    let secret = if let Some(secret) = secret_store.get("STRIPE_API_KEY") {
+        secret
+    } else {
+        return Err(anyhow!("secret was not found").into());
+    };
+
+    let state = AppState {pool, secret};
+    
     let rocket = rocket::build()
-        .mount("/", routes![index, public, private, register, login])
+        .mount("/", routes![index, public, private, register, login, checkout])
         .mount("/users", routes![get_user_notes])
         .mount("/notes", routes![get_notes_all, get_notes_one, post_note, delete_note])
         .mount("/products", routes![get_products_all, get_products_one])
