@@ -169,48 +169,48 @@ async fn get_products_one(product_id: i32, state: &State<AppState>) -> Result<Js
     Ok(Json(product))
 }
 
-// #[get("/paymentlink")]
-// async fn checkout(state: &State<AppState>) -> String {
-//     let client = Client::new(&state.secret.clone());
+#[get("/paymentlink")]
+async fn checkout(state: &State<AppState>) -> String {
+    let client = Client::new(&state.secret.clone());
 
-//     let product = {
-//         let mut create_product = CreateProduct::new("T-Shirt");
-//         create_product.metadata =
-//             Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
-//         StripeProduct::create(&client, create_product).await.unwrap()
-//     };
+    let product = {
+        let mut create_product = CreateProduct::new("T-Shirt");
+        create_product.metadata =
+            Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
+        StripeProduct::create(&client, create_product).await.unwrap()
+    };
 
-//     // and add a price for it in USD
-//     let price = {
-//         let mut create_price = CreatePrice::new(Currency::USD);
-//         create_price.product = Some(IdOrCreate::Id(&product.id));
-//         create_price.metadata =
-//             Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
-//         create_price.unit_amount = Some(1000);
-//         create_price.expand = &["product"];
-//         Price::create(&client, create_price).await.unwrap()
-//     };
+    // and add a price for it in USD
+    let price = {
+        let mut create_price = CreatePrice::new(Currency::USD);
+        create_price.product = Some(IdOrCreate::Id(&product.id));
+        create_price.metadata =
+            Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
+        create_price.unit_amount = Some(1000);
+        create_price.expand = &["product"];
+        Price::create(&client, create_price).await.unwrap()
+    };
 
-//     println!(
-//         "created a product {:?} at price {} {}",
-//         product.name.unwrap(),
-//         price.unit_amount.unwrap() / 100,
-//         price.currency.unwrap()
-//     );
+    println!(
+        "created a product {:?} at price {} {}",
+        product.name.unwrap(),
+        price.unit_amount.unwrap() / 100,
+        price.currency.unwrap()
+    );
 
-//     let payment_link = PaymentLink::create(
-//         &client,
-//         CreatePaymentLink::new(vec![CreatePaymentLinkLineItems {
-//             quantity: 3,
-//             price: price.id.to_string(),
-//             ..Default::default()
-//         }]),
-//     )
-//     .await
-//     .unwrap();
+    let payment_link = PaymentLink::create(
+        &client,
+        CreatePaymentLink::new(vec![CreatePaymentLinkLineItems {
+            quantity: 3,
+            price: price.id.to_string(),
+            ..Default::default()
+        }]),
+    )
+    .await
+    .unwrap();
 
-//     return payment_link.url;
-// }
+    return payment_link.url;
+}
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
