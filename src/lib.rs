@@ -1,6 +1,7 @@
 use bcrypt::verify;
 // lib.rs
 use rocket::http::Status;
+use shuttle_service::Context;
 use rocket::State;
 use rocket::response::status::{Custom, BadRequest};
 
