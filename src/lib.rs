@@ -217,7 +217,7 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 #[shuttle_service::main] 
 async fn rocket(#[shuttle_shared_db::Postgres] pool: PgPool, #[shuttle_secrets::Secrets] secret_store: SecretStore) -> shuttle_service::ShuttleRocket {
     // ONLY RUN THE BELOW LINE WHEN YOU WANT TO RUN MIGRATIONS
-    // MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
+    MIGRATOR.run(&pool).await.context("Failed to run migrations")?;
 
     let secret = if let Some(secret) = secret_store.get("STRIPE_API_KEY") {
         secret
