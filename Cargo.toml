@@ -10,14 +10,14 @@ publish = false
 anyhow = "1.0.66"
 async-stripe = { version = "0.15.0", features = ["runtime-tokio-hyper"] }
 bcrypt = "0.13.0"
-chrono = "0.4.22"
+chrono = "0.4.23"
 futures = "0.3.25"
 jsonwebtoken = { version = "8", default-features = false }
 lazy_static = "1.4"
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 shuttle-secrets = "0.7.2"
-shuttle-service = { version = "0.7.2", features = ["web-rocket"] }
+shuttle-service = { version = "0.8.0", features = ["web-rocket"] }
 shuttle-shared-db = {version = "0.7.2", features = ["postgres"]}
 sqlx = { version = "0.6.2", features = ["postgres"] }
 status = "0.0.10"
