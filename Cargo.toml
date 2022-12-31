@@ -1,5 +1,5 @@
 [package]
-name = "shuttle-rocket-api1"
+name = "shuttle-rocket-api2"
 version = "0.1.0"
 edition = "2021"
 publish = false
